@@ -3,9 +3,15 @@ package com.mojang.paintscan;
 import android.Manifest;
 import android.os.Bundle;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.ml.vision.FirebaseVision;
 import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcode;
+import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetector;
 import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
+import com.google.firebase.ml.vision.common.FirebaseVisionImage;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -22,6 +28,8 @@ import android.graphics.Bitmap;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,23 +40,28 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
         }
     }
-    private void saveImage(Bitmap finalBitmap, String image_name) {
 
-        String root = Environment.getExternalStorageDirectory().toString() + "/games/com.mojang/resource_packs/CameraThing/textures/entity/zombie";
+    protected Task<List<FirebaseVisionBarcode>> detectInImage(Bitmap bitmap) {
+        FirebaseVisionImage image = FirebaseVisionImage.fromBitmap(bitmap);
+        FirebaseVisionBarcodeDetector detector = FirebaseVision.getInstance().getVisionBarcodeDetector();
+        return detector.detectInImage(image);
+    }
+
+    private void saveImage(Bitmap finalBitmap, String imageName) {
+        String root = Environment.getExternalStorageDirectory().toString() + "/games/com.mojang/resource_packs/CameraThing";
+
+        List<String> folders = Arrays.asList(imageName.split("\\s*/\\s*"));
+        for(int i = 0; i < folders.size() - 1; ++i) {
+            root = root.concat("/" + folders.get(i));
+        }
+        String fileName = folders.get(folders.size()-1);
+
         File myDir = new File(root);
         myDir.mkdirs();
-        File file = new File(myDir, "zombie.png");
+        File file = new File(myDir, fileName);
         if (file.exists()) {
             file.delete();
         }
-
-        // QR Code StUfF
-        FirebaseVisionBarcodeDetectorOptions options =
-                new FirebaseVisionBarcodeDetectorOptions.Builder()
-                        .setBarcodeFormats(
-                                FirebaseVisionBarcode.FORMAT_QR_CODE,
-                                FirebaseVisionBarcode.FORMAT_AZTEC)
-                        .build();
 
         try {
             FileOutputStream out = new FileOutputStream(file);
@@ -66,13 +79,18 @@ public class MainActivity extends AppCompatActivity {
             if (resultCode == RESULT_OK) {
                 Bundle extras = data.getExtras();
                 ImageView imgView = findViewById(R.id.imageView);
-                Bitmap imageBitmap = (Bitmap) extras.get("data");
+                final Bitmap imageBitmap = (Bitmap) extras.get("data");
 
                 // setup the background image
                 imgView.setImageBitmap(imageBitmap);
 
-                // save to disk
-                saveImage(imageBitmap, "TEST_IMAGE");
+                detectInImage(imageBitmap).addOnSuccessListener(new OnSuccessListener<List<FirebaseVisionBarcode>>() {
+                    @Override
+                    public void onSuccess(List<FirebaseVisionBarcode> barcodes) {
+                        String fileName = barcodes.get(0).getDisplayValue();
+                        saveImage(imageBitmap, fileName);
+                    }
+                });
             }
         }
     }
