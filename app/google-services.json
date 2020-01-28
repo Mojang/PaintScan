@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "971945682887",
+    "firebase_url": "https://cameratexture.firebaseio.com",
+    "project_id": "cameratexture",
+    "storage_bucket": "cameratexture.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:971945682887:android:d50e34833e6eada1fc5be2",
+        "android_client_info": {
+          "package_name": "com.mojang.paintscan"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "971945682887-5brhm3b7lk6cfqmbs79u84k5hpdnavu3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mojang.paintscan",
+            "certificate_hash": "10f0c488276a0f05e784bec746dbde1b25a50611"
+          }
+        },
+        {
+          "client_id": "971945682887-6hr6hj6g3m89i75kip85si21f8f1klvh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmBz8IlHi7g9qPBmKvxc4KbZMFqwduv0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "971945682887-6hr6hj6g3m89i75kip85si21f8f1klvh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
