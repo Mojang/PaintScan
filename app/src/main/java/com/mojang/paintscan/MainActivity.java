@@ -146,17 +146,36 @@ public class MainActivity extends AppCompatActivity {
                             targetPath = barcode.getDisplayValue();
                         }
                     }
+
                     if (targetPath == null) {
                         Toast.makeText(MainActivity.this, "You need to scan the name marker", Toast.LENGTH_LONG).show();
                         // HACK
                         targetPath = "textures/entity/pig/pig.png";
                         // return;
                     }
-                    if (center1 == null || center2 == null || center3 == null || center4 == null) {
-                        Toast.makeText(MainActivity.this, "You need to scan all 5 markers", Toast.LENGTH_LONG).show();
-                        // return;
+
+                    // Detecting 5 markers seem impoosible. Let's go with this for now.
+                    Point[] centers = new Point[2];
+
+                    if (center1 != null && center3 != null) {
+                        centers[0] = getCentroid(new Point[]{center1, center3});
+                    } else {
+                        centers[0] = null;
                     }
-                    Log.v(LOG_TAG, "calling saveTarget with " + targetPath);
+
+                    if (center2 != null && center4 != null) {
+                        centers[1] = getCentroid(new Point[]{center2, center4});
+                    } else {
+                        centers[1] = null;
+                    }
+
+                    Point finalCenter = getCentroid(centers);
+
+//                    if (finalCenter == null) {
+//                        Toast.makeText(MainActivity.this, "You need to scan all opposite corner markers", Toast.LENGTH_LONG).show();
+//                    }
+
+                    Toast.makeText(MainActivity.this, "Detected marker count: " + barcodes.size(), Toast.LENGTH_LONG).show();
 
                     saveTarget(imageBitmap, targetPath);
                 });
@@ -164,16 +183,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private Point getCentroid(Point[] cornerPoints) {
-        if (cornerPoints == null) {
+    private Point getCentroid(Point[] points) {
+        if (points == null) {
             return null;
         }
-        if (cornerPoints.length < 4) {
+        if (points.length == 0) {
             return null;
         }
-        return new Point(
-                ((cornerPoints[0].x + cornerPoints[1].x + cornerPoints[2].x + cornerPoints[3].x) / 4),
-                ((cornerPoints[0].y + cornerPoints[1].y + cornerPoints[2].y + cornerPoints[3].y) / 4));
+
+        long y = 0;
+        long x = 0;
+        int count = 0;
+        for (Point p : points) {
+            if (p == null) {
+                continue;
+            }
+            x += p.x;
+            y += p.y;
+            ++count;
+        }
+
+        if (count == 0) {
+            return null;
+        }
+
+        return new Point((int)(x / count), (int)(y / count));
     }
 
     @Override
