@@ -144,8 +144,8 @@ public class MainActivity extends AppCompatActivity {
                     sCroppedFile.delete();
                 }
                 UCrop.of(sourceUri, targetUri)
-                        .withAspectRatio(1, 2)
-                        .withMaxResultSize(512, 1024)
+                        .withAspectRatio(2, 1)
+                        .withMaxResultSize(1024, 512)
                         .start(this);
 
 
