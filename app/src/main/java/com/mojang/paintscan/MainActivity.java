@@ -42,6 +42,7 @@ import android.graphics.Bitmap;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -58,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
     static final int REQUEST_IMAGE_CAPTURE = 1;
 
     static File sTakePictureFile = null;
+    static File sCroppedFile = null;
 
     private void dispatchTakePictureIntent() {
         sTakePictureFile = generateSaveFile();
@@ -107,7 +109,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == UCrop.REQUEST_CROP) {
             if (resultCode == RESULT_OK) {
-                final Uri resultUri = UCrop.getOutput(data);
+                try {
+                    final Uri resultUri = UCrop.getOutput(data);
+                    Bitmap croppedBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
+                    saveTarget(croppedBitmap, "textures/entity/pig/pig.png");
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+
             } else if (resultCode == UCrop.RESULT_ERROR) {
                 final Throwable cropError = UCrop.getError(data);
                 cropError.printStackTrace();
@@ -128,16 +138,11 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 Uri sourceUri = getFileUri(this, sTakePictureFile);
-                // File targetFile = generateTargetFile("textures/entity/pig/pig.png");
-                File targetFile = generateSaveFileTest();
-                File parentTargetFile = targetFile.getParentFile();
-                if (!parentTargetFile.exists()) {
-                    parentTargetFile.mkdirs();
+                sCroppedFile = new File(this.getCacheDir(), "IMG_" + System.currentTimeMillis());
+                Uri targetUri = Uri.fromFile(sCroppedFile);
+                if (sCroppedFile.exists()) {
+                    sCroppedFile.delete();
                 }
-                if (targetFile.exists()) {
-                    targetFile.delete();
-                }
-                Uri targetUri = getFileUri(this, targetFile);
                 UCrop.of(sourceUri, targetUri)
                         .withAspectRatio(1, 2)
                         .withMaxResultSize(512, 1024)
