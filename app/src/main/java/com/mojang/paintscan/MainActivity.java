@@ -50,6 +50,7 @@ import java.util.Date;
 import java.util.List;
 
 import com.google.helpers.CameraPermissionHelper;
+import com.yalantis.ucrop.UCrop;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -104,7 +105,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_IMAGE_CAPTURE) {
+        if (requestCode == UCrop.REQUEST_CROP) {
+            if (resultCode == RESULT_OK) {
+                final Uri resultUri = UCrop.getOutput(data);
+            } else if (resultCode == UCrop.RESULT_ERROR) {
+                final Throwable cropError = UCrop.getError(data);
+                cropError.printStackTrace();
+            }
+        } else if (requestCode == REQUEST_IMAGE_CAPTURE) {
             if (resultCode == RESULT_OK) {
                 ImageView imgView = findViewById(R.id.imageView);
 
@@ -119,66 +127,83 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                Bitmap imageBitmap = decodeSampledBitmapFromResource(photoFile, 1024, 1024);
-                imgView.setImageBitmap(imageBitmap);
+                Uri sourceUri = getFileUri(this, sTakePictureFile);
+                // File targetFile = generateTargetFile("textures/entity/pig/pig.png");
+                File targetFile = generateSaveFileTest();
+                File parentTargetFile = targetFile.getParentFile();
+                if (!parentTargetFile.exists()) {
+                    parentTargetFile.mkdirs();
+                }
+                if (targetFile.exists()) {
+                    targetFile.delete();
+                }
+                Uri targetUri = getFileUri(this, targetFile);
+                UCrop.of(sourceUri, targetUri)
+                        .withAspectRatio(1, 2)
+                        .withMaxResultSize(512, 1024)
+                        .start(this);
 
-                detectInImage(imageBitmap).addOnSuccessListener(barcodes -> {
-                    Point center1 = null;
-                    Point center2 = null;
-                    Point center3 = null;
-                    Point center4 = null;
-                    String targetPath = null;
 
-                    for (FirebaseVisionBarcode barcode: barcodes) {
-                        if (barcode == null) {
-                            continue;
-                        }
-                        String value = barcode.getDisplayValue().toLowerCase();
-                        if (value.equals("corner1\r\n") || value.equals("corner1")) {
-                            center1 = getCentroid(barcode.getCornerPoints());
-                        } else if (value.equals("corner2\r\n") || value.equals("corner2")) {
-                            center2 = getCentroid(barcode.getCornerPoints());
-                        } else if (value.equals("corner3\r\n") || value.equals("corner3")) {
-                            center3 = getCentroid(barcode.getCornerPoints());
-                        } else if (value.equals("corner4\r\n") || value.equals("corner4")) {
-                            center4 = getCentroid(barcode.getCornerPoints());
-                        } else {
-                            targetPath = barcode.getDisplayValue();
-                        }
-                    }
-
-                    if (targetPath == null) {
-                        Toast.makeText(MainActivity.this, "You need to scan the name marker", Toast.LENGTH_LONG).show();
-                        // HACK
-                        targetPath = "textures/entity/pig/pig.png";
-                        // return;
-                    }
-
-                    // Detecting 5 markers seem impoosible. Let's go with this for now.
-                    Point[] centers = new Point[2];
-
-                    if (center1 != null && center3 != null) {
-                        centers[0] = getCentroid(new Point[]{center1, center3});
-                    } else {
-                        centers[0] = null;
-                    }
-
-                    if (center2 != null && center4 != null) {
-                        centers[1] = getCentroid(new Point[]{center2, center4});
-                    } else {
-                        centers[1] = null;
-                    }
-
-                    Point finalCenter = getCentroid(centers);
-
-//                    if (finalCenter == null) {
-//                        Toast.makeText(MainActivity.this, "You need to scan all opposite corner markers", Toast.LENGTH_LONG).show();
+//                Bitmap imageBitmap = decodeSampledBitmapFromResource(photoFile, 1024, 1024);
+//                imgView.setImageBitmap(imageBitmap);
+//
+//                detectInImage(imageBitmap).addOnSuccessListener(barcodes -> {
+//                    Point center1 = null;
+//                    Point center2 = null;
+//                    Point center3 = null;
+//                    Point center4 = null;
+//                    String targetPath = null;
+//
+//                    for (FirebaseVisionBarcode barcode: barcodes) {
+//                        if (barcode == null) {
+//                            continue;
+//                        }
+//                        String value = barcode.getDisplayValue().toLowerCase();
+//                        if (value.equals("corner1\r\n") || value.equals("corner1")) {
+//                            center1 = getCentroid(barcode.getCornerPoints());
+//                        } else if (value.equals("corner2\r\n") || value.equals("corner2")) {
+//                            center2 = getCentroid(barcode.getCornerPoints());
+//                        } else if (value.equals("corner3\r\n") || value.equals("corner3")) {
+//                            center3 = getCentroid(barcode.getCornerPoints());
+//                        } else if (value.equals("corner4\r\n") || value.equals("corner4")) {
+//                            center4 = getCentroid(barcode.getCornerPoints());
+//                        } else {
+//                            targetPath = barcode.getDisplayValue();
+//                        }
 //                    }
-
-                    Toast.makeText(MainActivity.this, "Detected marker count: " + barcodes.size(), Toast.LENGTH_LONG).show();
-
-                    saveTarget(imageBitmap, targetPath);
-                });
+//
+//                    if (targetPath == null) {
+//                        Toast.makeText(MainActivity.this, "You need to scan the name marker", Toast.LENGTH_LONG).show();
+//                        // HACK
+//                        targetPath = "textures/entity/pig/pig.png";
+//                        // return;
+//                    }
+//
+//                    // Detecting 5 markers seem impoosible. Let's go with this for now.
+//                    Point[] centers = new Point[2];
+//
+//                    if (center1 != null && center3 != null) {
+//                        centers[0] = getCentroid(new Point[]{center1, center3});
+//                    } else {
+//                        centers[0] = null;
+//                    }
+//
+//                    if (center2 != null && center4 != null) {
+//                        centers[1] = getCentroid(new Point[]{center2, center4});
+//                    } else {
+//                        centers[1] = null;
+//                    }
+//
+//                    Point finalCenter = getCentroid(centers);
+//
+////                    if (finalCenter == null) {
+////                        Toast.makeText(MainActivity.this, "You need to scan all opposite corner markers", Toast.LENGTH_LONG).show();
+////                    }
+//
+//                    Toast.makeText(MainActivity.this, "Detected marker count: " + barcodes.size(), Toast.LENGTH_LONG).show();
+//
+//                    saveTarget(imageBitmap, targetPath);
+//                });
             }
         }
     }
@@ -324,6 +349,12 @@ public class MainActivity extends AppCompatActivity {
     private File generateSaveFile() {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String fileName = "/saved_images/photo_" + timeStamp + ".png";
+        return new File(Environment.getExternalStorageDirectory(), fileName);
+    }
+
+    private File generateSaveFileTest() {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String fileName = "/saved_images/test_photo_" + timeStamp + ".png";
         return new File(Environment.getExternalStorageDirectory(), fileName);
     }
 
