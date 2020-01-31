@@ -1,27 +1,15 @@
 package com.mojang.paintscan;
 
 import android.Manifest;
-import android.app.AlertDialog;
-import android.content.ClipData;
 import android.content.Context;
-import android.content.res.Resources;
-import android.database.Cursor;
+import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
-import android.graphics.Point;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.ar.core.ArCoreApk;
-import com.google.firebase.ml.vision.FirebaseVision;
-import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcode;
-import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetector;
-import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetectorOptions;
-import com.google.firebase.ml.vision.common.FirebaseVisionImage;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -29,7 +17,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.FileProvider;
 
 import android.os.Environment;
-import android.os.FileUriExposedException;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
@@ -37,18 +24,19 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.provider.MediaStore;
 import android.content.Intent;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.graphics.Bitmap;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 
 import com.google.helpers.CameraPermissionHelper;
 import com.yalantis.ucrop.UCrop;
@@ -58,26 +46,27 @@ public class MainActivity extends AppCompatActivity {
     static final String LOG_TAG = "MainActivity";
     static final int REQUEST_IMAGE_CAPTURE = 1;
 
-    static File sTakePictureFile = null;
-    static File sCroppedFile = null;
+    File mTakePictureFile = null;
+    File mCroppedFile = null;
+
+    String[] targetArray = {
+            "textures/entity/pig/pig.png",
+            "textures/entity/cow/cow.png",
+            "textures/entity/chicken.png"
+    };
+    String mTargetPath;
 
     private void dispatchTakePictureIntent() {
-        sTakePictureFile = generateSaveFile();
+        mTakePictureFile = generateSaveFile();
 
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, getFileUri(this, sTakePictureFile));
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, getFileUri(this, mTakePictureFile));
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         if (intent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
         }
-    }
-
-    protected Task<List<FirebaseVisionBarcode>> detectInImage(Bitmap bitmap) {
-        FirebaseVisionImage image = FirebaseVisionImage.fromBitmap(bitmap);
-        FirebaseVisionBarcodeDetector detector = FirebaseVision.getInstance().getVisionBarcodeDetector();
-        return detector.detectInImage(image);
     }
 
     private void saveTarget(Bitmap imageBitmap, String targetPath) {
@@ -109,135 +98,70 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == UCrop.REQUEST_CROP) {
             if (resultCode == RESULT_OK) {
-                try {
-                    final Uri resultUri = UCrop.getOutput(data);
-                    Bitmap croppedBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
-                    saveTarget(croppedBitmap, "textures/entity/pig/pig.png");
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                }
-
+                handleUCropOK(data);
             } else if (resultCode == UCrop.RESULT_ERROR) {
                 final Throwable cropError = UCrop.getError(data);
                 cropError.printStackTrace();
+                Toast.makeText(this, "Crop request failed.", Toast.LENGTH_LONG);
             }
         } else if (requestCode == REQUEST_IMAGE_CAPTURE) {
             if (resultCode == RESULT_OK) {
-                ImageView imgView = findViewById(R.id.imageView);
-
-                if (sTakePictureFile == null) {
-                    Toast.makeText(this, "Problem while reading intent URI", Toast.LENGTH_LONG);
-                    return;
-                }
-
-                File photoFile = sTakePictureFile;
-                if (!photoFile.exists()) {
-                    Toast.makeText(MainActivity.this, "Problem while trying to find photo: " + photoFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
-                    return;
-                }
-
-                Uri sourceUri = getFileUri(this, sTakePictureFile);
-                sCroppedFile = new File(this.getCacheDir(), "IMG_" + System.currentTimeMillis());
-                Uri targetUri = Uri.fromFile(sCroppedFile);
-                if (sCroppedFile.exists()) {
-                    sCroppedFile.delete();
-                }
-                UCrop.of(sourceUri, targetUri)
-                        .withAspectRatio(2, 1)
-                        .withMaxResultSize(1024, 512)
-                        .start(this);
-
-
-//                Bitmap imageBitmap = decodeSampledBitmapFromResource(photoFile, 1024, 1024);
-//                imgView.setImageBitmap(imageBitmap);
-//
-//                detectInImage(imageBitmap).addOnSuccessListener(barcodes -> {
-//                    Point center1 = null;
-//                    Point center2 = null;
-//                    Point center3 = null;
-//                    Point center4 = null;
-//                    String targetPath = null;
-//
-//                    for (FirebaseVisionBarcode barcode: barcodes) {
-//                        if (barcode == null) {
-//                            continue;
-//                        }
-//                        String value = barcode.getDisplayValue().toLowerCase();
-//                        if (value.equals("corner1\r\n") || value.equals("corner1")) {
-//                            center1 = getCentroid(barcode.getCornerPoints());
-//                        } else if (value.equals("corner2\r\n") || value.equals("corner2")) {
-//                            center2 = getCentroid(barcode.getCornerPoints());
-//                        } else if (value.equals("corner3\r\n") || value.equals("corner3")) {
-//                            center3 = getCentroid(barcode.getCornerPoints());
-//                        } else if (value.equals("corner4\r\n") || value.equals("corner4")) {
-//                            center4 = getCentroid(barcode.getCornerPoints());
-//                        } else {
-//                            targetPath = barcode.getDisplayValue();
-//                        }
-//                    }
-//
-//                    if (targetPath == null) {
-//                        Toast.makeText(MainActivity.this, "You need to scan the name marker", Toast.LENGTH_LONG).show();
-//                        // HACK
-//                        targetPath = "textures/entity/pig/pig.png";
-//                        // return;
-//                    }
-//
-//                    // Detecting 5 markers seem impoosible. Let's go with this for now.
-//                    Point[] centers = new Point[2];
-//
-//                    if (center1 != null && center3 != null) {
-//                        centers[0] = getCentroid(new Point[]{center1, center3});
-//                    } else {
-//                        centers[0] = null;
-//                    }
-//
-//                    if (center2 != null && center4 != null) {
-//                        centers[1] = getCentroid(new Point[]{center2, center4});
-//                    } else {
-//                        centers[1] = null;
-//                    }
-//
-//                    Point finalCenter = getCentroid(centers);
-//
-////                    if (finalCenter == null) {
-////                        Toast.makeText(MainActivity.this, "You need to scan all opposite corner markers", Toast.LENGTH_LONG).show();
-////                    }
-//
-//                    Toast.makeText(MainActivity.this, "Detected marker count: " + barcodes.size(), Toast.LENGTH_LONG).show();
-//
-//                    saveTarget(imageBitmap, targetPath);
-//                });
+                handlePhotoCaptureOK(data);
+            } else {
+                Toast.makeText(this, "Photo capture failed.", Toast.LENGTH_LONG);
             }
         }
     }
 
-    private Point getCentroid(Point[] points) {
-        if (points == null) {
-            return null;
-        }
-        if (points.length == 0) {
-            return null;
+    private void handlePhotoCaptureOK(Intent data) {
+        if (mTakePictureFile == null) {
+            Toast.makeText(this, "Problem while reading intent URI", Toast.LENGTH_LONG);
+            return;
         }
 
-        long y = 0;
-        long x = 0;
-        int count = 0;
-        for (Point p : points) {
-            if (p == null) {
-                continue;
-            }
-            x += p.x;
-            y += p.y;
-            ++count;
+        File photoFile = mTakePictureFile;
+        if (!photoFile.exists()) {
+            Toast.makeText(MainActivity.this, "Problem while trying to find photo: " + photoFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+            return;
         }
 
-        if (count == 0) {
-            return null;
+        Uri sourceUri = getFileUri(this, mTakePictureFile);
+        try {
+            Bitmap sourceBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), sourceUri);
+            // setImageView(sourceBitmap);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        return new Point((int)(x / count), (int)(y / count));
+        mCroppedFile = new File(this.getCacheDir(), "IMG_" + System.currentTimeMillis());
+        Uri targetUri = Uri.fromFile(mCroppedFile);
+        if (mCroppedFile.exists()) {
+            mCroppedFile.delete();
+        }
+        UCrop.of(sourceUri, targetUri)
+                .withAspectRatio(2, 1)
+                .withMaxResultSize(1024, 512)
+                .start(this);
+    }
+
+    private void handleUCropOK(Intent data) {
+        try {
+            final Uri resultUri = UCrop.getOutput(data);
+            Bitmap croppedBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), resultUri);
+            setImageView(croppedBitmap);
+            saveTarget(croppedBitmap, mTargetPath);
+
+            Toast.makeText(this, "SUCCESS!", Toast.LENGTH_LONG);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Save failedl!", Toast.LENGTH_LONG);
+        }
+    }
+
+    private void setImageView(Bitmap bitmap) {
+        ImageView imgView = findViewById(R.id.imageView);
+        imgView.setImageBitmap(bitmap);
     }
 
     @Override
@@ -273,12 +197,37 @@ public class MainActivity extends AppCompatActivity {
 
         createPhotoOutputFolder();
 
+        ArrayAdapter adapter = new ArrayAdapter<String>(this, R.layout.activity_listview, targetArray);
+        ListView listView = findViewById(R.id.listView);
+        listView.setAdapter(adapter);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView parent, View view, int position, long id) {
+                mTargetPath = (String) parent.getItemAtPosition(position);
+                dispatchTakePictureIntent();
+            }
+        });
+
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},1);
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 dispatchTakePictureIntent();
+            }
+        });
+        fab.hide();
+
+        Button mcButton = findViewById(R.id.buttonMC);
+        mcButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    Intent i = MainActivity.this.getPackageManager().getLaunchIntentForPackage("com.mojang.minecraftpe");
+                    MainActivity.this.startActivity(i);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         });
     }
